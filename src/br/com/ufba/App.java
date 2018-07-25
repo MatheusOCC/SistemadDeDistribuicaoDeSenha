@@ -22,7 +22,7 @@ public class App {
 	private final AtendimentoContext atendimento;
 	private JButton btnSenhaNormal;
 	private JTable table;
-	private JButton btnNewButton;
+
 
 	/**
 	 * Launch the application.
@@ -82,12 +82,6 @@ public class App {
 		frame.getContentPane().add(btnSenhaNormal);
 		frame.getContentPane().add(btnSenhaPreferencial);
 		
-		btnNewButton = new JButton("New button");
-		btnNewButton.addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent e) {
-				atendimento.atender();
-			}
-		});
-		frame.getContentPane().add(btnNewButton);
+		
 	}
 }

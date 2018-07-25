@@ -11,67 +11,123 @@ import br.com.ufba.utils.FileContext;
 
 public class AtendimentoContext {
 
-	private Queue<Senha> senhas;
+	private Queue<Atendimento> atendimentos;
 	private final int TEMPO_DE_ESPERA = 5000;
 	private int ultimoId;
 	private FileContext fileContext;
 
+	@SuppressWarnings("unchecked")
 	public AtendimentoContext() {
-
-		fileContext = new FileContext();
+		fileContext = new FileContext("dados");
 
 		try {
-			this.senhas = (Queue<Senha>) fileContext.getFile("dados");
+			this.atendimentos = (LinkedList<Atendimento>) fileContext.readFile();
 
-			if (this.senhas == null) {
-				this.senhas = new LinkedList<>();
-				fileContext.saveFile("dados", this.senhas);
+			if (this.atendimentos == null) {
+				this.atendimentos = new LinkedList<>();
+			} else {
+				Atendimento atendimento = this.atendimentos.stream()
+						.sorted(Comparator.comparing(Atendimento::getDataRegistro))
+						.collect(Collectors.toCollection(LinkedList::new)).getLast();
+
+				this.ultimoId = atendimento.getId();
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
 	}
 
-	public Senha atender() {
+	public Atendimento atender() {
 		Calendar calendar = Calendar.getInstance();
 
-		Queue<Senha> senhasAntigasPreferenciais = this.senhas.stream()
-				.filter(s -> s.getDataAtendimento() == null && s.getTipo().equals("P"))
-				.sorted(Comparator.comparing(Senha::getDataRegistro)).collect(Collectors.toCollection(LinkedList::new));
+		Queue<Atendimento> atendimentosPreferenciais = this.atendimentos.stream()
+				.filter(s -> s.getDataAtendimento() == null && s.getSenha().getTipo().equals("P"))
+				.sorted(Comparator.comparing(Atendimento::getDataRegistro))
+				.collect(Collectors.toCollection(LinkedList::new));
 
-		for (Senha senha : senhasAntigasPreferenciais) {
-			calendar.setTime(senha.getDataRegistro());
+		Queue<Atendimento> atendimentosNormais = this.atendimentos.stream()
+				.filter(s -> s.getDataAtendimento() == null && s.getSenha().getTipo().equals("N"))
+				.sorted(Comparator.comparing(Atendimento::getDataRegistro))
+				.collect(Collectors.toCollection(LinkedList::new));
+
+		for (Atendimento atendimento : atendimentosPreferenciais) {
+			calendar.setTime(atendimento.getDataRegistro());
 
 			if (calendar.getTimeInMillis() >= this.TEMPO_DE_ESPERA) {
-				senha.setDataAtendimento(new Date());
-				return senha;
+				atendimento.setDataAtendimento(new Date());
+
+				try {
+					fileContext.saveFile(this.atendimentos);
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+
+				return atendimento;
 			}
 		}
 
-		Senha senhaNormal = this.senhas.peek();
-		senhaNormal.setDataAtendimento(new Date());
+		Atendimento atendimentoNormal = atendimentosNormais.peek();
+		atendimentoNormal.setDataAtendimento(new Date());
 
-		return senhaNormal;
+		try {
+			fileContext.saveFile(this.atendimentos);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return atendimentoNormal;
 	}
 
-	public void gerarSenhaNormal() {
+	public Atendimento gerarAtendimentoNormal() {
 		this.ultimoId++;
-		Senha senha = new Senha(this.ultimoId, "N");
-		senhas.add(senha);
+
+		Senha novaSenha = new Senha("N");
+
+		Atendimento atendimento = new Atendimento(this.ultimoId, novaSenha);
+		atendimentos.add(atendimento);
+
+		try {
+			fileContext.saveFile(this.atendimentos);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		return atendimento;
 	}
 
-	public void gerarSenhaPreferencial() {
+	public Atendimento gerarAtendimentoPreferencial() {
 		this.ultimoId++;
-		Senha senha = new Senha(this.ultimoId, "P");
-		senhas.add(senha);
+
+		Senha novaSenha = new Senha("P");
+
+		Atendimento atendimento = new Atendimento(this.ultimoId, novaSenha);
+		atendimentos.add(atendimento);
+
+		return atendimento;
 	}
 
-	public Queue<Senha> getTodasAsSenhas() {
-		return this.senhas;
+	public Atendimento getAtendimentoAtual() {
+		return this.atendimentos.stream()
+				.sorted(Comparator.comparing(Atendimento::getDataRegistro)
+						.thenComparing(Atendimento::getDataAtendimento).reversed())
+				.filter(s -> s.getDataAtendimento() != null).findFirst().orElse(null);
 	}
 
-	public Queue<Senha> getTodasAsSenhasNaoAtendidas() {
-		return this.senhas.stream().filter(s -> s.getDataAtendimento() == null)
-				.sorted(Comparator.comparing(Senha::getDataRegistro)).collect(Collectors.toCollection(LinkedList::new));
+	public Queue<Atendimento> getTodosAtendimentos() {
+		return this.atendimentos;
+	}
+
+	public Queue<Atendimento> getTodosAtendimentosNaoAtendidos() {
+		return this.atendimentos.stream().filter(s -> s.getDataAtendimento() == null)
+				.sorted(Comparator.comparing(Atendimento::getDataRegistro))
+				.collect(Collectors.toCollection(LinkedList::new));
+	}
+
+	public Queue<Atendimento> getTodosAtendimentosAtendidos(int count) {
+		return this.atendimentos.stream().filter(s -> s.getDataAtendimento() != null)
+				.sorted(Comparator.comparing(Atendimento::getDataRegistro)
+						.thenComparing(Atendimento::getDataAtendimento).reversed())
+				.limit(count).collect(Collectors.toCollection(LinkedList::new));
 	}
 }
